@@ -1,15 +1,25 @@
 package com.TradeP.SmartTrade.entity;
 
-import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * SmartMeter Entity
+ * -----------------
+ * meter_id (PK), user_id (FK), zone_id (FK), hardware_version,
+ * firmware_version, latitude, longitude, status
+ */
 @Entity
 @Table(name = "smart_meter")
 public class SmartMeter {
@@ -19,11 +29,15 @@ public class SmartMeter {
     @Column(name = "meter_id", nullable = false, updatable = false)
     private UUID meterId;
 
-    @Column(name = "house_id", nullable = false)
-    private UUID houseId;
+    /** Owner of the meter. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    @Column(name = "meter_number", nullable = false, unique = true, length = 100)
-    private String meterNumber;
+    /** Grid zone the meter is connected to. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "zone_id", nullable = false)
+    private GridZone zone;
 
     @Column(name = "hardware_version", length = 50)
     private String hardwareVersion;
@@ -31,10 +45,16 @@ public class SmartMeter {
     @Column(name = "firmware_version", length = 50)
     private String firmwareVersion;
 
-    @Column(name = "installation_date")
-    private LocalDate installationDate;
+    /** Decimal degrees, -90 to 90. */
+    @Column(name = "latitude", precision = 9, scale = 6)
+    private BigDecimal latitude;
 
-    @Column(name = "status", length = 30)
+    /** Decimal degrees, -180 to 180. */
+    @Column(name = "longitude", precision = 9, scale = 6)
+    private BigDecimal longitude;
+
+    /** e.g. ONLINE, OFFLINE, MAINTENANCE. */
+    @Column(name = "status", nullable = false, length = 30)
     private String status = "ONLINE";
 
     public SmartMeter() {
@@ -48,20 +68,20 @@ public class SmartMeter {
         this.meterId = meterId;
     }
 
-    public UUID getHouseId() {
-        return houseId;
+    public User getUser() {
+        return user;
     }
 
-    public void setHouseId(UUID houseId) {
-        this.houseId = houseId;
+    public void setUser(User user) {
+        this.user = user;
     }
 
-    public String getMeterNumber() {
-        return meterNumber;
+    public GridZone getZone() {
+        return zone;
     }
 
-    public void setMeterNumber(String meterNumber) {
-        this.meterNumber = meterNumber;
+    public void setZone(GridZone zone) {
+        this.zone = zone;
     }
 
     public String getHardwareVersion() {
@@ -80,12 +100,20 @@ public class SmartMeter {
         this.firmwareVersion = firmwareVersion;
     }
 
-    public LocalDate getInstallationDate() {
-        return installationDate;
+    public BigDecimal getLatitude() {
+        return latitude;
     }
 
-    public void setInstallationDate(LocalDate installationDate) {
-        this.installationDate = installationDate;
+    public void setLatitude(BigDecimal latitude) {
+        this.latitude = latitude;
+    }
+
+    public BigDecimal getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(BigDecimal longitude) {
+        this.longitude = longitude;
     }
 
     public String getStatus() {
@@ -94,5 +122,18 @@ public class SmartMeter {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SmartMeter that = (SmartMeter) o;
+        return meterId != null && Objects.equals(meterId, that.meterId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(meterId);
     }
 }
