@@ -1,5 +1,6 @@
 package com.TradeP.SmartTrade.repository;
 
+// merged with remote main - keeping complete implementation
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

@@ -1,5 +1,6 @@
 package com.TradeP.SmartTrade.entity;
 
+// merged with remote main - keeping complete implementation
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.UUID;
