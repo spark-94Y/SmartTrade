@@ -1,69 +1,51 @@
 package com.TradeP.SmartTrade.entity;
 
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
-
-/**
- * MeterReading Entity
- * -------------------
- * reading_id (PK), meter_id (FK), timestamp, current_generation_kwh,
- * current_consumption_kwh, net_grid_flow_kwh, battery_soc_percentage
- *
- * Readings are append-only: once stored they are never updated.
- */
 @Entity
 @Table(name = "meter_reading")
 public class MeterReading {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "reading_id", nullable = false, updatable = false)
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "reading_id", updatable = false, nullable = false)
     private UUID readingId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "meter_id", nullable = false, updatable = false)
-    private SmartMeter meter;
+    @Column(name = "meter_id", nullable = false)
+    private UUID meterId;
+
+    @Column(name = "reading_value", nullable = false, precision = 12, scale = 4)
+    private BigDecimal readingValue;
+
+    @Column(name = "reading_type", nullable = false, length = 20)
+    private String readingType; // 'GENERATION' or 'CONSUMPTION'
 
     @Column(name = "timestamp", nullable = false, updatable = false)
-    private LocalDateTime timestamp;
+    private LocalDateTime timestamp = LocalDateTime.now();
 
-    @Column(name = "current_generation_kwh", nullable = false, updatable = false, precision = 12, scale = 4)
-    private BigDecimal currentGenerationKwh = BigDecimal.ZERO;
+    // Constructors
+    public MeterReading() {}
 
-    @Column(name = "current_consumption_kwh", nullable = false, updatable = false, precision = 12, scale = 4)
-    private BigDecimal currentConsumptionKwh = BigDecimal.ZERO;
-
-    /** Positive = surplus exported to the grid, negative = imported from the grid. */
-    @Column(name = "net_grid_flow_kwh", nullable = false, updatable = false, precision = 12, scale = 4)
-    private BigDecimal netGridFlowKwh = BigDecimal.ZERO;
-
-    /** Battery state of charge, 0 to 100. Null when the meter has no battery. */
-    @Column(name = "battery_soc_percentage", updatable = false, precision = 5, scale = 2)
-    private BigDecimal batterySocPercentage;
-
-    public MeterReading() {
+    public MeterReading(UUID meterId, BigDecimal readingValue, String readingType) {
+        this.meterId = meterId;
+        this.readingValue = readingValue;
+        this.readingType = readingType;
+        this.timestamp = LocalDateTime.now();
     }
 
-    @PrePersist
-    void onCreate() {
-        if (timestamp == null) {
-            timestamp = LocalDateTime.now();
-        }
+    public MeterReading(UUID readingId, UUID meterId, BigDecimal readingValue, String readingType, LocalDateTime timestamp) {
+        this.readingId = readingId;
+        this.meterId = meterId;
+        this.readingValue = readingValue;
+        this.readingType = readingType;
+        this.timestamp = timestamp != null ? timestamp : LocalDateTime.now();
     }
 
+    // Getters and Setters
     public UUID getReadingId() {
         return readingId;
     }
@@ -72,12 +54,28 @@ public class MeterReading {
         this.readingId = readingId;
     }
 
-    public SmartMeter getMeter() {
-        return meter;
+    public UUID getMeterId() {
+        return meterId;
     }
 
-    public void setMeter(SmartMeter meter) {
-        this.meter = meter;
+    public void setMeterId(UUID meterId) {
+        this.meterId = meterId;
+    }
+
+    public BigDecimal getReadingValue() {
+        return readingValue;
+    }
+
+    public void setReadingValue(BigDecimal readingValue) {
+        this.readingValue = readingValue;
+    }
+
+    public String getReadingType() {
+        return readingType;
+    }
+
+    public void setReadingType(String readingType) {
+        this.readingType = readingType;
     }
 
     public LocalDateTime getTimestamp() {
@@ -88,48 +86,28 @@ public class MeterReading {
         this.timestamp = timestamp;
     }
 
-    public BigDecimal getCurrentGenerationKwh() {
-        return currentGenerationKwh;
-    }
-
-    public void setCurrentGenerationKwh(BigDecimal currentGenerationKwh) {
-        this.currentGenerationKwh = currentGenerationKwh;
-    }
-
-    public BigDecimal getCurrentConsumptionKwh() {
-        return currentConsumptionKwh;
-    }
-
-    public void setCurrentConsumptionKwh(BigDecimal currentConsumptionKwh) {
-        this.currentConsumptionKwh = currentConsumptionKwh;
-    }
-
-    public BigDecimal getNetGridFlowKwh() {
-        return netGridFlowKwh;
-    }
-
-    public void setNetGridFlowKwh(BigDecimal netGridFlowKwh) {
-        this.netGridFlowKwh = netGridFlowKwh;
-    }
-
-    public BigDecimal getBatterySocPercentage() {
-        return batterySocPercentage;
-    }
-
-    public void setBatterySocPercentage(BigDecimal batterySocPercentage) {
-        this.batterySocPercentage = batterySocPercentage;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         MeterReading that = (MeterReading) o;
-        return readingId != null && Objects.equals(readingId, that.readingId);
+        return Objects.equals(readingId, that.readingId);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(readingId);
     }
+
+    @Override
+    public String toString() {
+        return "MeterReading{" +
+                "readingId=" + readingId +
+                ", meterId=" + meterId +
+                ", readingValue=" + readingValue +
+                ", readingType='" + readingType + '\'' +
+                ", timestamp=" + timestamp +
+                '}';
+    }
 }
+

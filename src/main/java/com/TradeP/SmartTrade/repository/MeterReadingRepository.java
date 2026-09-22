@@ -1,27 +1,19 @@
 package com.TradeP.SmartTrade.repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
+import com.TradeP.SmartTrade.entity.MeterReading;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.TradeP.SmartTrade.entity.MeterReading;
+import java.util.List;
+import java.util.UUID;
 
 @Repository
 public interface MeterReadingRepository extends JpaRepository<MeterReading, UUID> {
 
-    /** All readings of one meter, newest first. */
-    List<MeterReading> findByMeter_MeterIdOrderByTimestampDesc(UUID meterId);
+    // Fetch all meter readings for a specific smart meter
+    List<MeterReading> findByMeterId(UUID meterId);
 
-    /** The most recent reading of one meter. */
-    Optional<MeterReading> findFirstByMeter_MeterIdOrderByTimestampDesc(UUID meterId);
-
-    /** Readings of one meter inside a time window, oldest first (handy for charts). */
-    List<MeterReading> findByMeter_MeterIdAndTimestampBetweenOrderByTimestampAsc(
-            UUID meterId, LocalDateTime from, LocalDateTime to);
-
-    boolean existsByMeter_MeterId(UUID meterId);
+    // Fetch meter readings for a specific smart meter ordered by timestamp descending
+    List<MeterReading> findByMeterIdOrderByTimestampDesc(UUID meterId);
 }
+
