@@ -1,13 +1,19 @@
 package com.TradeP.SmartTrade.entity;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 @Entity
@@ -19,8 +25,9 @@ public class SmartMeter {
     @Column(name = "meter_id", nullable = false, updatable = false)
     private UUID meterId;
 
-    @Column(name = "house_id", nullable = false)
-    private UUID houseId;
+    @ManyToOne
+    @JoinColumn(name = "house_id", nullable = false)
+    private House house;
 
     @Column(name = "meter_number", nullable = false, unique = true, length = 100)
     private String meterNumber;
@@ -37,6 +44,14 @@ public class SmartMeter {
     @Column(name = "status", length = 30)
     private String status = "ONLINE";
 
+    @JsonIgnore
+    @OneToMany(mappedBy = "meter")
+    private List<MeterReading> meterReadings;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "meter")
+    private List<EnergyOrder> energyOrders;
+
     public SmartMeter() {
     }
 
@@ -48,12 +63,26 @@ public class SmartMeter {
         this.meterId = meterId;
     }
 
+    public House getHouse() {
+        return house;
+    }
+
+    public void setHouse(House house) {
+        this.house = house;
+    }
+
     public UUID getHouseId() {
-        return houseId;
+        return house != null ? house.getHouseId() : null;
     }
 
     public void setHouseId(UUID houseId) {
-        this.houseId = houseId;
+        if (houseId != null) {
+            House h = new House();
+            h.setHouseId(houseId);
+            this.house = h;
+        } else {
+            this.house = null;
+        }
     }
 
     public String getMeterNumber() {
@@ -94,5 +123,21 @@ public class SmartMeter {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public List<MeterReading> getMeterReadings() {
+        return meterReadings;
+    }
+
+    public void setMeterReadings(List<MeterReading> meterReadings) {
+        this.meterReadings = meterReadings;
+    }
+
+    public List<EnergyOrder> getEnergyOrders() {
+        return energyOrders;
+    }
+
+    public void setEnergyOrders(List<EnergyOrder> energyOrders) {
+        this.energyOrders = energyOrders;
     }
 }

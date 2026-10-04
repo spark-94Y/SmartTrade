@@ -2,9 +2,12 @@ package com.TradeP.SmartTrade.entity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,6 +17,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 @Entity
@@ -53,6 +57,14 @@ public class EnergyOrder {
 
 	@Column(name = "expires_at")
 	private LocalDateTime expiresAt;
+
+	@JsonIgnore
+	@OneToMany(mappedBy = "buyOrder")
+	private List<EnergyTrade> buyTrades;
+
+	@JsonIgnore
+	@OneToMany(mappedBy = "sellOrder")
+	private List<EnergyTrade> sellTrades;
 
 	public UUID getOrderId() {
 		return orderId;
@@ -132,6 +144,22 @@ public class EnergyOrder {
 
 	public void setExpiresAt(LocalDateTime expiresAt) {
 		this.expiresAt = expiresAt;
+	}
+
+	public List<EnergyTrade> getBuyTrades() {
+		return buyTrades;
+	}
+
+	public void setBuyTrades(List<EnergyTrade> buyTrades) {
+		this.buyTrades = buyTrades;
+	}
+
+	public List<EnergyTrade> getSellTrades() {
+		return sellTrades;
+	}
+
+	public void setSellTrades(List<EnergyTrade> sellTrades) {
+		this.sellTrades = sellTrades;
 	}
 
 }

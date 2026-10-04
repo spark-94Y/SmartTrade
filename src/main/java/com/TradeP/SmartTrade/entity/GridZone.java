@@ -1,15 +1,18 @@
 package com.TradeP.SmartTrade.entity;
 
-// merged with remote main - keeping complete implementation
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 /**
@@ -55,6 +58,10 @@ public class GridZone {
     /** Base price per kWh before order-book matching. Same scale as prices elsewhere (12,4). */
     @Column(name = "base_market_clearing_price", nullable = false, precision = 12, scale = 4)
     private BigDecimal baseMarketClearingPrice = BigDecimal.ZERO;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "gridZone")
+    private List<House> houses;
 
     public GridZone() {
     }
@@ -117,6 +124,14 @@ public class GridZone {
 
     public void setBaseMarketClearingPrice(BigDecimal baseMarketClearingPrice) {
         this.baseMarketClearingPrice = baseMarketClearingPrice;
+    }
+
+    public List<House> getHouses() {
+        return houses;
+    }
+
+    public void setHouses(List<House> houses) {
+        this.houses = houses;
     }
 
     @Override

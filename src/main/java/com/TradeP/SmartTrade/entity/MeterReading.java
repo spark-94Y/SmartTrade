@@ -1,51 +1,46 @@
 package com.TradeP.SmartTrade.entity;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.UUID;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "meter_reading")
 public class MeterReading {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "reading_id", updatable = false, nullable = false)
     private UUID readingId;
 
-    @Column(name = "meter_id", nullable = false)
-    private UUID meterId;
+    @ManyToOne
+    @JoinColumn(name = "meter_id", nullable = false)
+    private SmartMeter meter;
 
     @Column(name = "reading_value", nullable = false, precision = 12, scale = 4)
     private BigDecimal readingValue;
 
     @Column(name = "reading_type", nullable = false, length = 20)
-    private String readingType; // 'GENERATION' or 'CONSUMPTION'
+    private String readingType;
 
+    @CreationTimestamp
     @Column(name = "timestamp", nullable = false, updatable = false)
-    private LocalDateTime timestamp = LocalDateTime.now();
+    private LocalDateTime timestamp;
 
-    // Constructors
-    public MeterReading() {}
-
-    public MeterReading(UUID meterId, BigDecimal readingValue, String readingType) {
-        this.meterId = meterId;
-        this.readingValue = readingValue;
-        this.readingType = readingType;
-        this.timestamp = LocalDateTime.now();
+    public MeterReading() {
     }
 
-    public MeterReading(UUID readingId, UUID meterId, BigDecimal readingValue, String readingType, LocalDateTime timestamp) {
-        this.readingId = readingId;
-        this.meterId = meterId;
-        this.readingValue = readingValue;
-        this.readingType = readingType;
-        this.timestamp = timestamp != null ? timestamp : LocalDateTime.now();
-    }
-
-    // Getters and Setters
     public UUID getReadingId() {
         return readingId;
     }
@@ -54,12 +49,26 @@ public class MeterReading {
         this.readingId = readingId;
     }
 
+    public SmartMeter getMeter() {
+        return meter;
+    }
+
+    public void setMeter(SmartMeter meter) {
+        this.meter = meter;
+    }
+
     public UUID getMeterId() {
-        return meterId;
+        return meter != null ? meter.getMeterId() : null;
     }
 
     public void setMeterId(UUID meterId) {
-        this.meterId = meterId;
+        if (meterId != null) {
+            SmartMeter m = new SmartMeter();
+            m.setMeterId(meterId);
+            this.meter = m;
+        } else {
+            this.meter = null;
+        }
     }
 
     public BigDecimal getReadingValue() {
@@ -85,29 +94,4 @@ public class MeterReading {
     public void setTimestamp(LocalDateTime timestamp) {
         this.timestamp = timestamp;
     }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        MeterReading that = (MeterReading) o;
-        return Objects.equals(readingId, that.readingId);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(readingId);
-    }
-
-    @Override
-    public String toString() {
-        return "MeterReading{" +
-                "readingId=" + readingId +
-                ", meterId=" + meterId +
-                ", readingValue=" + readingValue +
-                ", readingType='" + readingType + '\'' +
-                ", timestamp=" + timestamp +
-                '}';
-    }
 }
-

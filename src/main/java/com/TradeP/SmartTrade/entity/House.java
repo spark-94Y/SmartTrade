@@ -2,15 +2,21 @@ package com.TradeP.SmartTrade.entity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 @Entity
@@ -22,11 +28,13 @@ public class House {
     @Column(name = "house_id", updatable = false, nullable = false)
     private UUID houseId;
 
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 
-    @Column(name = "zone_id", nullable = false)
-    private Long zoneId;
+    @ManyToOne
+    @JoinColumn(name = "zone_id")
+    private GridZone gridZone;
 
     @Column(name = "address", columnDefinition = "TEXT")
     private String address;
@@ -41,6 +49,10 @@ public class House {
     @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt;
 
+    @JsonIgnore
+    @OneToMany(mappedBy = "house")
+    private List<SmartMeter> smartMeters;
+
     public House() {
     }
 
@@ -52,20 +64,48 @@ public class House {
         this.houseId = houseId;
     }
 
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
     public UUID getUserId() {
-        return userId;
+        return user != null ? user.getUserId() : null;
     }
 
     public void setUserId(UUID userId) {
-        this.userId = userId;
+        if (userId != null) {
+            User u = new User();
+            u.setUserId(userId);
+            this.user = u;
+        } else {
+            this.user = null;
+        }
     }
 
-    public Long getZoneId() {
-        return zoneId;
+    public GridZone getGridZone() {
+        return gridZone;
     }
 
-    public void setZoneId(Long zoneId) {
-        this.zoneId = zoneId;
+    public void setGridZone(GridZone gridZone) {
+        this.gridZone = gridZone;
+    }
+
+    public UUID getZoneId() {
+        return gridZone != null ? gridZone.getZoneId() : null;
+    }
+
+    public void setZoneId(UUID zoneId) {
+        if (zoneId != null) {
+            GridZone gz = new GridZone();
+            gz.setZoneId(zoneId);
+            this.gridZone = gz;
+        } else {
+            this.gridZone = null;
+        }
     }
 
     public String getAddress() {
@@ -98,5 +138,13 @@ public class House {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public List<SmartMeter> getSmartMeters() {
+        return smartMeters;
+    }
+
+    public void setSmartMeters(List<SmartMeter> smartMeters) {
+        this.smartMeters = smartMeters;
     }
 }
