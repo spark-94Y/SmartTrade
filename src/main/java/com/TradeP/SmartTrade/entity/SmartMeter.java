@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -27,6 +28,7 @@ public class SmartMeter {
 
     @ManyToOne
     @JoinColumn(name = "house_id", nullable = false)
+    @JsonIgnore
     private House house;
 
     @Column(name = "meter_number", nullable = false, unique = true, length = 100)
@@ -71,6 +73,7 @@ public class SmartMeter {
         this.house = house;
     }
 
+    @JsonProperty("houseId")
     public UUID getHouseId() {
         return house != null ? house.getHouseId() : null;
     }
@@ -141,3 +144,4 @@ public class SmartMeter {
         this.energyOrders = energyOrders;
     }
 }
+

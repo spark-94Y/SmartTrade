@@ -59,7 +59,7 @@ public class SmartMeterController {
     @GetMapping("/house/{houseId}")
     public List<SmartMeter> getMetersByHouse(@PathVariable UUID houseId) {
         logger.info("Fetching smart meters for houseId={}", houseId);
-        List<SmartMeter> meters = repository.findByHouseId(houseId);
+        List<SmartMeter> meters = repository.findByHouse_HouseId(houseId);
         logger.info("Found {} meters for houseId={}", meters.size(), houseId);
         return meters;
     }
