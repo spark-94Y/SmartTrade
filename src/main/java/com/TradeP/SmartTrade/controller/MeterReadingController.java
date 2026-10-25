@@ -1,9 +1,10 @@
 package com.TradeP.SmartTrade.controller;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,38 +17,47 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.TradeP.SmartTrade.entity.MeterReading;
+import com.TradeP.SmartTrade.exception.BadRequestException;
+import com.TradeP.SmartTrade.exception.ResourceNotFoundException;
 import com.TradeP.SmartTrade.repository.MeterReadingRepository;
 
 @RestController
 public class MeterReadingController {
+    private static final Logger logger = LoggerFactory.getLogger(MeterReadingController.class);
 
     @Autowired
     private MeterReadingRepository repo;
 
     @GetMapping("/meterreading")
     public List<MeterReading> getAllReadings() {
-        return repo.findAll();
+        logger.info("Fetching all meter readings");
+        List<MeterReading> readings = repo.findAll();
+        logger.info("Found {} meter readings", readings.size());
+        return readings;
     }
 
     @GetMapping("/meterreading/{readingId}")
     public ResponseEntity<?> getReadingById(@PathVariable UUID readingId) {
-        Optional<MeterReading> optionalReading = repo.findById(readingId);
-        if (optionalReading.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Meter Reading Not Found");
-        }
-        return ResponseEntity.ok(optionalReading.get());
+        logger.info("Fetching meter reading with id={}", readingId);
+        MeterReading reading = repo.findById(readingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Meter Reading", readingId));
+        logger.info("Found meter reading: id={}", readingId);
+        return ResponseEntity.ok(reading);
     }
 
     @GetMapping("/meterreading/meter/{meterId}")
     public ResponseEntity<?> getReadingsByMeterId(@PathVariable UUID meterId) {
+        logger.info("Fetching meter readings for meterId={}", meterId);
         List<MeterReading> readings = repo.findByMeterIdOrderByTimestampDesc(meterId);
+        logger.info("Found {} readings for meterId={}", readings.size(), meterId);
         return ResponseEntity.ok(readings);
     }
 
     @PostMapping("/createmeterreading")
     public ResponseEntity<?> createMeterReading(@RequestBody MeterReading reading) {
+        logger.info("Creating new meter reading for meterId={}", reading.getMeterId());
         if (reading.getMeterId() == null || reading.getReadingValue() == null || reading.getReadingType() == null) {
-            return ResponseEntity.badRequest().body("meterId, readingValue, and readingType are required");
+            throw new BadRequestException("meterId, readingValue, and readingType are required");
         }
 
         MeterReading newReading = new MeterReading();
@@ -55,17 +65,16 @@ public class MeterReadingController {
         newReading.setReadingValue(reading.getReadingValue());
         newReading.setReadingType(reading.getReadingType());
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(repo.save(newReading));
+        MeterReading savedReading = repo.save(newReading);
+        logger.info("Meter reading created successfully with id={}", savedReading.getReadingId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedReading);
     }
 
     @PatchMapping("/meterreading/{readingId}")
     public ResponseEntity<?> updateMeterReading(@PathVariable UUID readingId, @RequestBody MeterReading incomingData) {
-        Optional<MeterReading> optionalReading = repo.findById(readingId);
-        if (optionalReading.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Meter Reading Not Found");
-        }
-
-        MeterReading existingReading = optionalReading.get();
+        logger.info("Updating meter reading with id={}", readingId);
+        MeterReading existingReading = repo.findById(readingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Meter Reading", readingId));
 
         if (incomingData.getReadingValue() != null) {
             existingReading.setReadingValue(incomingData.getReadingValue());
@@ -74,17 +83,19 @@ public class MeterReadingController {
             existingReading.setReadingType(incomingData.getReadingType());
         }
 
-        return ResponseEntity.ok(repo.save(existingReading));
+        MeterReading updatedReading = repo.save(existingReading);
+        logger.info("Meter reading updated successfully: id={}", readingId);
+        return ResponseEntity.ok(updatedReading);
     }
 
     @DeleteMapping("/meterreading/{readingId}")
     public ResponseEntity<?> deleteMeterReading(@PathVariable UUID readingId) {
-        Optional<MeterReading> optionalReading = repo.findById(readingId);
-        if (optionalReading.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Meter Reading Not Found");
-        }
+        logger.info("Deleting meter reading with id={}", readingId);
+        MeterReading reading = repo.findById(readingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Meter Reading", readingId));
 
-        repo.delete(optionalReading.get());
+        repo.delete(reading);
+        logger.info("Meter reading deleted successfully: id={}", readingId);
         return ResponseEntity.ok("Meter Reading Deleted Successfully");
     }
 }

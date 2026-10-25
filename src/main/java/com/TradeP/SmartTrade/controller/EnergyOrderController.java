@@ -2,9 +2,10 @@ package com.TradeP.SmartTrade.controller;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,12 +20,16 @@ import org.springframework.web.bind.annotation.RestController;
 import com.TradeP.SmartTrade.entity.EnergyOrder;
 import com.TradeP.SmartTrade.entity.SmartMeter;
 import com.TradeP.SmartTrade.entity.User;
+import com.TradeP.SmartTrade.exception.BadRequestException;
+import com.TradeP.SmartTrade.exception.ResourceNotFoundException;
 import com.TradeP.SmartTrade.repository.EnergyOrderRepository;
 import com.TradeP.SmartTrade.repository.SmartMeterRepository;
 import com.TradeP.SmartTrade.repository.UserRepository;
 
 @RestController
 public class EnergyOrderController {
+	private static final Logger logger = LoggerFactory.getLogger(EnergyOrderController.class);
+
 	@Autowired
 	private EnergyOrderRepository repo;
 
@@ -36,57 +41,58 @@ public class EnergyOrderController {
 
 	@GetMapping("/order")
 	public List<EnergyOrder> order() {
-		return repo.findAll();
+		logger.info("Fetching all energy orders");
+		List<EnergyOrder> orders = repo.findAll();
+		logger.info("Found {} energy orders", orders.size());
+		return orders;
 	}
 
 	@GetMapping("/order/{orderId}")
 	public ResponseEntity<?> getOrderById(@PathVariable UUID orderId) {
-		Optional<EnergyOrder> optionalOrder = repo.findById(orderId);
-		if (optionalOrder.isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Order Not Found");
-		}
-		return ResponseEntity.ok(optionalOrder.get());
+		logger.info("Fetching order with id={}", orderId);
+		EnergyOrder order = repo.findById(orderId)
+				.orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+		logger.info("Found order: id={}", orderId);
+		return ResponseEntity.ok(order);
 	}
 
 	@GetMapping("/user/{userId}/orders")
 	public ResponseEntity<?> getOrdersByUser(@PathVariable UUID userId) {
-		Optional<User> optionalUser = userRepo.findById(userId);
-		if (optionalUser.isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User Not Found");
-		}
-		return ResponseEntity.ok(repo.findByUser_UserId(userId));
+		logger.info("Fetching orders for userId={}", userId);
+		userRepo.findById(userId)
+				.orElseThrow(() -> new ResourceNotFoundException("User", userId));
+		List<EnergyOrder> orders = repo.findByUser_UserId(userId);
+		logger.info("Found {} orders for userId={}", orders.size(), userId);
+		return ResponseEntity.ok(orders);
 	}
 
 	@PostMapping("/createorder")
 	public ResponseEntity<?> createOrder(@RequestBody EnergyOrder order) {
+		logger.info("Creating new energy order");
 		if (order.getUser() == null || order.getUser().getUserId() == null) {
-			return ResponseEntity.badRequest().body("userId is Required");
+			throw new BadRequestException("userId is Required");
 		}
 		if (order.getMeter() == null || order.getMeter().getMeterId() == null) {
-			return ResponseEntity.badRequest().body("meterId is Required");
+			throw new BadRequestException("meterId is Required");
 		}
 		if (order.getOrderType() == null) {
-			return ResponseEntity.badRequest().body("orderType is Required");
+			throw new BadRequestException("orderType is Required");
 		}
 		if (order.getEnergyQuantityKwh() == null || order.getEnergyQuantityKwh().compareTo(BigDecimal.ZERO) <= 0) {
-			return ResponseEntity.badRequest().body("energyQuantityKwh Must Be Greater Than Zero");
+			throw new BadRequestException("energyQuantityKwh Must Be Greater Than Zero");
 		}
 		if (order.getPricePerKwh() == null || order.getPricePerKwh().compareTo(BigDecimal.ZERO) <= 0) {
-			return ResponseEntity.badRequest().body("pricePerKwh Must Be Greater Than Zero");
+			throw new BadRequestException("pricePerKwh Must Be Greater Than Zero");
 		}
 
-		Optional<User> optionalUser = userRepo.findById(order.getUser().getUserId());
-		if (optionalUser.isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User Not Found");
-		}
-		Optional<SmartMeter> optionalMeter = meterRepo.findById(order.getMeter().getMeterId());
-		if (optionalMeter.isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Meter Not Found");
-		}
+		User user = userRepo.findById(order.getUser().getUserId())
+				.orElseThrow(() -> new ResourceNotFoundException("User", order.getUser().getUserId()));
+		SmartMeter meter = meterRepo.findById(order.getMeter().getMeterId())
+				.orElseThrow(() -> new ResourceNotFoundException("Meter", order.getMeter().getMeterId()));
 
 		EnergyOrder newOrder = new EnergyOrder();
-		newOrder.setUser(optionalUser.get());
-		newOrder.setMeter(optionalMeter.get());
+		newOrder.setUser(user);
+		newOrder.setMeter(meter);
 		newOrder.setOrderType(order.getOrderType());
 		newOrder.setEnergyQuantityKwh(order.getEnergyQuantityKwh());
 		newOrder.setRemainingQuantityKwh(order.getEnergyQuantityKwh());
@@ -94,16 +100,17 @@ public class EnergyOrderController {
 		newOrder.setStatus("OPEN");
 		newOrder.setExpiresAt(order.getExpiresAt());
 
-		return ResponseEntity.status(HttpStatus.CREATED).body(repo.save(newOrder));
+		EnergyOrder savedOrder = repo.save(newOrder);
+		logger.info("Energy order created successfully with id={}", savedOrder.getOrderId());
+		return ResponseEntity.status(HttpStatus.CREATED).body(savedOrder);
 	}
 
 	@PatchMapping("/order/{orderId}")
 	public ResponseEntity<?> updateOrder(@PathVariable UUID orderId, @RequestBody EnergyOrder incomingData) {
-		Optional<EnergyOrder> optionalOrder = repo.findById(orderId);
-		if (optionalOrder.isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Order Not Found");
-		}
-		EnergyOrder existingOrder = optionalOrder.get();
+		logger.info("Updating order with id={}", orderId);
+		EnergyOrder existingOrder = repo.findById(orderId)
+				.orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
 		if (incomingData.getPricePerKwh() != null) {
 			existingOrder.setPricePerKwh(incomingData.getPricePerKwh());
 		}
@@ -113,27 +120,30 @@ public class EnergyOrderController {
 		if (incomingData.getExpiresAt() != null) {
 			existingOrder.setExpiresAt(incomingData.getExpiresAt());
 		}
-		return ResponseEntity.ok(repo.save(existingOrder));
+
+		EnergyOrder updatedOrder = repo.save(existingOrder);
+		logger.info("Order updated successfully: id={}", orderId);
+		return ResponseEntity.ok(updatedOrder);
 	}
 
 	@PatchMapping("/order/{orderId}/cancel")
 	public ResponseEntity<?> cancelOrder(@PathVariable UUID orderId) {
-		Optional<EnergyOrder> optionalOrder = repo.findById(orderId);
-		if (optionalOrder.isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Order Not Found");
-		}
-		EnergyOrder order = optionalOrder.get();
+		logger.info("Cancelling order with id={}", orderId);
+		EnergyOrder order = repo.findById(orderId)
+				.orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 		order.setStatus("CANCELLED");
-		return ResponseEntity.ok(repo.save(order));
+		EnergyOrder cancelledOrder = repo.save(order);
+		logger.info("Order cancelled successfully: id={}", orderId);
+		return ResponseEntity.ok(cancelledOrder);
 	}
 
 	@DeleteMapping("/order/{orderId}")
 	public ResponseEntity<?> deleteOrder(@PathVariable UUID orderId) {
-		Optional<EnergyOrder> optionalOrder = repo.findById(orderId);
-		if (optionalOrder.isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Order Not Found");
-		}
-		repo.delete(optionalOrder.get());
+		logger.info("Deleting order with id={}", orderId);
+		EnergyOrder order = repo.findById(orderId)
+				.orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+		repo.delete(order);
+		logger.info("Order deleted successfully: id={}", orderId);
 		return ResponseEntity.ok("Order Deleted Succesfully");
 	}
 

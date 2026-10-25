@@ -1,9 +1,10 @@
 package com.TradeP.SmartTrade.controller;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,38 +17,47 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.TradeP.SmartTrade.entity.House;
+import com.TradeP.SmartTrade.exception.BadRequestException;
+import com.TradeP.SmartTrade.exception.ResourceNotFoundException;
 import com.TradeP.SmartTrade.repository.HouseRepository;
 
 @RestController
 public class HouseController {
+    private static final Logger logger = LoggerFactory.getLogger(HouseController.class);
 
     @Autowired
     private HouseRepository repo;
 
     @GetMapping("/house")
     public List<House> getAllHouses() {
-        return repo.findAll();
+        logger.info("Fetching all houses");
+        List<House> houses = repo.findAll();
+        logger.info("Found {} houses", houses.size());
+        return houses;
     }
 
     @GetMapping("/house/{houseId}")
     public ResponseEntity<?> getHouseById(@PathVariable UUID houseId) {
-        Optional<House> optionalHouse = repo.findById(houseId);
-        if (optionalHouse.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("House Not Found");
-        }
-        return ResponseEntity.ok(optionalHouse.get());
+        logger.info("Fetching house with id={}", houseId);
+        House house = repo.findById(houseId)
+                .orElseThrow(() -> new ResourceNotFoundException("House", houseId));
+        logger.info("Found house: id={}", houseId);
+        return ResponseEntity.ok(house);
     }
 
     @GetMapping("/house/user/{userId}")
     public ResponseEntity<?> getHousesByUserId(@PathVariable UUID userId) {
+        logger.info("Fetching houses for userId={}", userId);
         List<House> houses = repo.findByUserId(userId);
+        logger.info("Found {} houses for userId={}", houses.size(), userId);
         return ResponseEntity.ok(houses);
     }
 
     @PostMapping("/createhouse")
     public ResponseEntity<?> createHouse(@RequestBody House house) {
+        logger.info("Creating new house");
         if (house.getUserId() == null || house.getZoneId() == null) {
-            return ResponseEntity.badRequest().body("userId and zoneId are required");
+            throw new BadRequestException("userId and zoneId are required");
         }
 
         House newHouse = new House();
@@ -57,17 +67,16 @@ public class HouseController {
         newHouse.setSolarCapacityKw(house.getSolarCapacityKw());
         newHouse.setConnectionType(house.getConnectionType());
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(repo.save(newHouse));
+        House savedHouse = repo.save(newHouse);
+        logger.info("House created successfully with id={}", savedHouse.getHouseId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedHouse);
     }
 
     @PatchMapping("/house/{houseId}")
     public ResponseEntity<?> updateHouse(@PathVariable UUID houseId, @RequestBody House incomingData) {
-        Optional<House> optionalHouse = repo.findById(houseId);
-        if (optionalHouse.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("House Not Found");
-        }
-
-        House existingHouse = optionalHouse.get();
+        logger.info("Updating house with id={}", houseId);
+        House existingHouse = repo.findById(houseId)
+                .orElseThrow(() -> new ResourceNotFoundException("House", houseId));
 
         if (incomingData.getAddress() != null) {
             existingHouse.setAddress(incomingData.getAddress());
@@ -82,17 +91,19 @@ public class HouseController {
             existingHouse.setZoneId(incomingData.getZoneId());
         }
 
-        return ResponseEntity.ok(repo.save(existingHouse));
+        House updatedHouse = repo.save(existingHouse);
+        logger.info("House updated successfully: id={}", houseId);
+        return ResponseEntity.ok(updatedHouse);
     }
 
     @DeleteMapping("/house/{houseId}")
     public ResponseEntity<?> deleteHouse(@PathVariable UUID houseId) {
-        Optional<House> optionalHouse = repo.findById(houseId);
-        if (optionalHouse.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("House Not Found");
-        }
+        logger.info("Deleting house with id={}", houseId);
+        House house = repo.findById(houseId)
+                .orElseThrow(() -> new ResourceNotFoundException("House", houseId));
 
-        repo.delete(optionalHouse.get());
+        repo.delete(house);
+        logger.info("House deleted successfully: id={}", houseId);
         return ResponseEntity.ok("House Deleted Successfully");
     }
 }
