@@ -49,7 +49,7 @@ public class WalletTransactionController {
     @GetMapping("/wallettransaction/user/{userId}")
     public ResponseEntity<?> getTransactionsByUserId(@PathVariable UUID userId) {
         logger.info("Fetching wallet transactions for userId={}", userId);
-        List<WalletTransaction> transactions = repo.findByUserId(userId);
+        List<WalletTransaction> transactions = repo.findByUser_UserId(userId);
         logger.info("Found {} transactions for userId={}", transactions.size(), userId);
         return ResponseEntity.ok(transactions);
     }
@@ -57,7 +57,7 @@ public class WalletTransactionController {
     @GetMapping("/wallettransaction/trade/{tradeId}")
     public ResponseEntity<?> getTransactionsByTradeId(@PathVariable UUID tradeId) {
         logger.info("Fetching wallet transactions for tradeId={}", tradeId);
-        List<WalletTransaction> transactions = repo.findByTradeId(tradeId);
+        List<WalletTransaction> transactions = repo.findByTrade_TradeId(tradeId);
         logger.info("Found {} transactions for tradeId={}", transactions.size(), tradeId);
         return ResponseEntity.ok(transactions);
     }

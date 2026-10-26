@@ -16,7 +16,5 @@ public interface SmartMeterRepository extends JpaRepository<SmartMeter, UUID> {
 
     List<SmartMeter> findByHouse_HouseId(UUID houseId);
 
-    List<SmartMeter> findByHouseId(UUID houseId);
-
     List<SmartMeter> findByStatus(String status);
 }

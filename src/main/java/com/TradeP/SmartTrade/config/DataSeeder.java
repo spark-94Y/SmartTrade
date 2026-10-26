@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.TradeP.SmartTrade.entity.EnergyOrder;
 import com.TradeP.SmartTrade.entity.EnergyTrade;
@@ -27,10 +28,14 @@ import com.TradeP.SmartTrade.repository.SmartMeterRepository;
 import com.TradeP.SmartTrade.repository.UserRepository;
 import com.TradeP.SmartTrade.repository.WalletTransactionRepository;
 
+import jakarta.persistence.EntityManager;
+
 /**
  * Seeds the database with sample data on application startup.
  * Uses fixed UUIDs so the data is idempotent — safe to run on every restart.
- * If the seed data already exists (checked via the first user's UUID), it skips.
+ * If ANY data already exists in any table, the seeder skips entirely.
+ * Uses EntityManager.merge() inside a programmatic transaction to handle
+ * entities with pre-assigned UUIDs and @GeneratedValue annotation.
  */
 @Component
 public class DataSeeder implements CommandLineRunner {
@@ -61,6 +66,8 @@ public class DataSeeder implements CommandLineRunner {
     private final EnergyOrderRepository orderRepo;
     private final EnergyTradeRepository tradeRepo;
     private final WalletTransactionRepository walletRepo;
+    private final EntityManager entityManager;
+    private final TransactionTemplate transactionTemplate;
 
     public DataSeeder(UserRepository userRepo,
                       GridZoneRepository zoneRepo,
@@ -69,7 +76,9 @@ public class DataSeeder implements CommandLineRunner {
                       MeterReadingRepository readingRepo,
                       EnergyOrderRepository orderRepo,
                       EnergyTradeRepository tradeRepo,
-                      WalletTransactionRepository walletRepo) {
+                      WalletTransactionRepository walletRepo,
+                      EntityManager entityManager,
+                      TransactionTemplate transactionTemplate) {
         this.userRepo    = userRepo;
         this.zoneRepo    = zoneRepo;
         this.houseRepo   = houseRepo;
@@ -78,172 +87,225 @@ public class DataSeeder implements CommandLineRunner {
         this.orderRepo   = orderRepo;
         this.tradeRepo   = tradeRepo;
         this.walletRepo  = walletRepo;
+        this.entityManager = entityManager;
+        this.transactionTemplate = transactionTemplate;
     }
 
     @Override
     public void run(String... args) {
-        // ── Idempotency check: skip if seed data already present ────────────
-        if (userRepo.existsById(ALICE_ID)) {
-            logger.info("✔ Sample data already exists — skipping seed.");
-            return;
-        }
+        try {
+            // ── Idempotency check: skip if ANY data already present ─────────
+            if (userRepo.count() > 0 || zoneRepo.count() > 0 || houseRepo.count() > 0
+                    || meterRepo.count() > 0 || readingRepo.count() > 0 || orderRepo.count() > 0
+                    || tradeRepo.count() > 0 || walletRepo.count() > 0) {
+                logger.info("✔ Database already contains data — skipping seed.");
+                return;
+            }
 
-        logger.info("⏳ Seeding sample data …");
+            logger.info("⏳ Seeding sample data …");
+
+            transactionTemplate.executeWithoutResult(status -> seedData());
+
+            logger.info("✅ Sample data seeded successfully! (2 users, 1 zone, 2 houses, 2 meters, 2 readings, 2 orders, 1 trade, 2 wallet txns)");
+
+        } catch (Exception e) {
+            // Log the error but NEVER crash the application because of seeding
+            logger.error("⚠ Data seeding failed — application will continue without sample data. Error: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Uses native SQL INSERT statements to seed data, bypassing Hibernate's
+     * persist/merge issues with manually-assigned UUIDs on @GeneratedValue entities.
+     */
+    private void seedData() {
         LocalDateTime now = LocalDateTime.now();
 
         // ── 1. Users ────────────────────────────────────────────────────────
-        User alice = new User();
-        alice.setUserId(ALICE_ID);
-        alice.setEmail("alice@smarttrade.io");
-        alice.setFullName("Alice Johnson");
-        alice.setPasswordHash("$2a$10$dummyHashForAlice000000000000000000000000000000");
-        alice.setWalletBalance(new BigDecimal("5000.0000"));
-        alice.setRole("PROSUMER");
-        alice.setCreatedAt(now);
-        userRepo.save(alice);
+        entityManager.createNativeQuery(
+            "INSERT INTO \"user\" (user_id, email, full_name, password_hash, wallet_balance, role, created_at) " +
+            "VALUES (:id, :email, :name, :hash, :balance, :role, :created)")
+            .setParameter("id", ALICE_ID)
+            .setParameter("email", "alice@smarttrade.io")
+            .setParameter("name", "Alice Johnson")
+            .setParameter("hash", "$2a$10$dummyHashForAlice000000000000000000000000000000")
+            .setParameter("balance", new BigDecimal("5000.0000"))
+            .setParameter("role", "PROSUMER")
+            .setParameter("created", now)
+            .executeUpdate();
 
-        User bob = new User();
-        bob.setUserId(BOB_ID);
-        bob.setEmail("bob@smarttrade.io");
-        bob.setFullName("Bob Williams");
-        bob.setPasswordHash("$2a$10$dummyHashForBob00000000000000000000000000000000");
-        bob.setWalletBalance(new BigDecimal("3200.0000"));
-        bob.setRole("PROSUMER");
-        bob.setCreatedAt(now);
-        userRepo.save(bob);
+        entityManager.createNativeQuery(
+            "INSERT INTO \"user\" (user_id, email, full_name, password_hash, wallet_balance, role, created_at) " +
+            "VALUES (:id, :email, :name, :hash, :balance, :role, :created)")
+            .setParameter("id", BOB_ID)
+            .setParameter("email", "bob@smarttrade.io")
+            .setParameter("name", "Bob Williams")
+            .setParameter("hash", "$2a$10$dummyHashForBob00000000000000000000000000000000")
+            .setParameter("balance", new BigDecimal("3200.0000"))
+            .setParameter("role", "PROSUMER")
+            .setParameter("created", now)
+            .executeUpdate();
 
         // ── 2. Grid Zone ────────────────────────────────────────────────────
-        GridZone zone = new GridZone();
-        zone.setZoneId(ZONE_ID);
-        zone.setZoneName("Zone-Mumbai-West");
-        zone.setCurrentSolarIrradiance(new BigDecimal("875.50"));
-        zone.setWeatherCondition("CLEAR");
-        zone.setTotalAggregateReserveKwh(new BigDecimal("1250.0000"));
-        zone.setGridStatus("STABLE");
-        zone.setBaseMarketClearingPrice(new BigDecimal("6.5000"));
-        zoneRepo.save(zone);
+        entityManager.createNativeQuery(
+            "INSERT INTO grid_zone (zone_id, zone_name, current_solar_irradiance, weather_condition, " +
+            "total_aggregate_reserve_kwh, grid_status, base_market_clearing_price) " +
+            "VALUES (:id, :name, :irradiance, :weather, :reserve, :status, :price)")
+            .setParameter("id", ZONE_ID)
+            .setParameter("name", "Zone-Mumbai-West")
+            .setParameter("irradiance", new BigDecimal("875.50"))
+            .setParameter("weather", "CLEAR")
+            .setParameter("reserve", new BigDecimal("1250.0000"))
+            .setParameter("status", "STABLE")
+            .setParameter("price", new BigDecimal("6.5000"))
+            .executeUpdate();
 
         // ── 3. Houses ───────────────────────────────────────────────────────
-        House houseA = new House();
-        houseA.setHouseId(HOUSE_A_ID);
-        houseA.setUser(alice);
-        houseA.setGridZone(zone);
-        houseA.setAddress("42, Green Acres, Andheri West, Mumbai 400053");
-        houseA.setSolarCapacityKw(new BigDecimal("5.50"));
-        houseA.setConnectionType("SOLAR_HYBRID");
-        houseA.setCreatedAt(now);
-        houseRepo.save(houseA);
+        entityManager.createNativeQuery(
+            "INSERT INTO house (house_id, user_id, zone_id, address, solar_capacity_kw, connection_type, created_at) " +
+            "VALUES (:id, :userId, :zoneId, :address, :capacity, :type, :created)")
+            .setParameter("id", HOUSE_A_ID)
+            .setParameter("userId", ALICE_ID)
+            .setParameter("zoneId", ZONE_ID)
+            .setParameter("address", "42, Green Acres, Andheri West, Mumbai 400053")
+            .setParameter("capacity", new BigDecimal("5.50"))
+            .setParameter("type", "SOLAR_HYBRID")
+            .setParameter("created", now)
+            .executeUpdate();
 
-        House houseB = new House();
-        houseB.setHouseId(HOUSE_B_ID);
-        houseB.setUser(bob);
-        houseB.setGridZone(zone);
-        houseB.setAddress("18, Palm Residency, Bandra East, Mumbai 400051");
-        houseB.setSolarCapacityKw(new BigDecimal("3.20"));
-        houseB.setConnectionType("SOLAR_ONLY");
-        houseB.setCreatedAt(now);
-        houseRepo.save(houseB);
+        entityManager.createNativeQuery(
+            "INSERT INTO house (house_id, user_id, zone_id, address, solar_capacity_kw, connection_type, created_at) " +
+            "VALUES (:id, :userId, :zoneId, :address, :capacity, :type, :created)")
+            .setParameter("id", HOUSE_B_ID)
+            .setParameter("userId", BOB_ID)
+            .setParameter("zoneId", ZONE_ID)
+            .setParameter("address", "18, Palm Residency, Bandra East, Mumbai 400051")
+            .setParameter("capacity", new BigDecimal("3.20"))
+            .setParameter("type", "SOLAR_ONLY")
+            .setParameter("created", now)
+            .executeUpdate();
 
         // ── 4. Smart Meters ─────────────────────────────────────────────────
-        SmartMeter meterA = new SmartMeter();
-        meterA.setMeterId(METER_A_ID);
-        meterA.setHouse(houseA);
-        meterA.setMeterNumber("SM-MH-2024-00001");
-        meterA.setHardwareVersion("HW-v3.1");
-        meterA.setFirmwareVersion("FW-v2.4.1");
-        meterA.setInstallationDate(LocalDate.of(2024, 6, 15));
-        meterA.setStatus("ONLINE");
-        meterRepo.save(meterA);
+        entityManager.createNativeQuery(
+            "INSERT INTO smart_meter (meter_id, house_id, meter_number, hardware_version, firmware_version, installation_date, status) " +
+            "VALUES (:id, :houseId, :number, :hw, :fw, :installDate, :status)")
+            .setParameter("id", METER_A_ID)
+            .setParameter("houseId", HOUSE_A_ID)
+            .setParameter("number", "SM-MH-2024-00001")
+            .setParameter("hw", "HW-v3.1")
+            .setParameter("fw", "FW-v2.4.1")
+            .setParameter("installDate", LocalDate.of(2024, 6, 15))
+            .setParameter("status", "ONLINE")
+            .executeUpdate();
 
-        SmartMeter meterB = new SmartMeter();
-        meterB.setMeterId(METER_B_ID);
-        meterB.setHouse(houseB);
-        meterB.setMeterNumber("SM-MH-2024-00002");
-        meterB.setHardwareVersion("HW-v3.1");
-        meterB.setFirmwareVersion("FW-v2.4.1");
-        meterB.setInstallationDate(LocalDate.of(2024, 7, 20));
-        meterB.setStatus("ONLINE");
-        meterRepo.save(meterB);
+        entityManager.createNativeQuery(
+            "INSERT INTO smart_meter (meter_id, house_id, meter_number, hardware_version, firmware_version, installation_date, status) " +
+            "VALUES (:id, :houseId, :number, :hw, :fw, :installDate, :status)")
+            .setParameter("id", METER_B_ID)
+            .setParameter("houseId", HOUSE_B_ID)
+            .setParameter("number", "SM-MH-2024-00002")
+            .setParameter("hw", "HW-v3.1")
+            .setParameter("fw", "FW-v2.4.1")
+            .setParameter("installDate", LocalDate.of(2024, 7, 20))
+            .setParameter("status", "ONLINE")
+            .executeUpdate();
 
         // ── 5. Meter Readings ───────────────────────────────────────────────
-        MeterReading readingA = new MeterReading();
-        readingA.setReadingId(READING_A);
-        readingA.setMeter(meterA);
-        readingA.setReadingValue(new BigDecimal("12.3500"));
-        readingA.setReadingType("EXPORT");
-        readingA.setTimestamp(now);
-        readingRepo.save(readingA);
+        entityManager.createNativeQuery(
+            "INSERT INTO meter_reading (reading_id, meter_id, reading_value, reading_type, \"timestamp\") " +
+            "VALUES (:id, :meterId, :value, :type, :ts)")
+            .setParameter("id", READING_A)
+            .setParameter("meterId", METER_A_ID)
+            .setParameter("value", new BigDecimal("12.3500"))
+            .setParameter("type", "EXPORT")
+            .setParameter("ts", now)
+            .executeUpdate();
 
-        MeterReading readingB = new MeterReading();
-        readingB.setReadingId(READING_B);
-        readingB.setMeter(meterB);
-        readingB.setReadingValue(new BigDecimal("8.7200"));
-        readingB.setReadingType("IMPORT");
-        readingB.setTimestamp(now);
-        readingRepo.save(readingB);
+        entityManager.createNativeQuery(
+            "INSERT INTO meter_reading (reading_id, meter_id, reading_value, reading_type, \"timestamp\") " +
+            "VALUES (:id, :meterId, :value, :type, :ts)")
+            .setParameter("id", READING_B)
+            .setParameter("meterId", METER_B_ID)
+            .setParameter("value", new BigDecimal("8.7200"))
+            .setParameter("type", "IMPORT")
+            .setParameter("ts", now)
+            .executeUpdate();
 
         // ── 6. Energy Orders ────────────────────────────────────────────────
-        EnergyOrder buyOrder = new EnergyOrder();
-        buyOrder.setOrderId(BUY_ORDER);
-        buyOrder.setUser(alice);
-        buyOrder.setMeter(meterA);
-        buyOrder.setOrderType("BUY");
-        buyOrder.setEnergyQuantityKwh(new BigDecimal("10.0000"));
-        buyOrder.setRemainingQuantityKwh(new BigDecimal("0.0000"));
-        buyOrder.setPricePerKwh(new BigDecimal("7.0000"));
-        buyOrder.setStatus("FILLED");
-        buyOrder.setCreatedAt(now);
-        buyOrder.setExpiresAt(now.plusHours(24));
-        orderRepo.save(buyOrder);
+        entityManager.createNativeQuery(
+            "INSERT INTO energy_order (order_id, user_id, meter_id, order_type, energy_quantity_kwh, " +
+            "remaining_quantity_kwh, price_per_kwh, status, created_at, expires_at) " +
+            "VALUES (:id, :userId, :meterId, :type, :qty, :remaining, :price, :status, :created, :expires)")
+            .setParameter("id", BUY_ORDER)
+            .setParameter("userId", ALICE_ID)
+            .setParameter("meterId", METER_A_ID)
+            .setParameter("type", "BUY")
+            .setParameter("qty", new BigDecimal("10.0000"))
+            .setParameter("remaining", new BigDecimal("0.0000"))
+            .setParameter("price", new BigDecimal("7.0000"))
+            .setParameter("status", "FILLED")
+            .setParameter("created", now)
+            .setParameter("expires", now.plusHours(24))
+            .executeUpdate();
 
-        EnergyOrder sellOrder = new EnergyOrder();
-        sellOrder.setOrderId(SELL_ORDER);
-        sellOrder.setUser(bob);
-        sellOrder.setMeter(meterB);
-        sellOrder.setOrderType("SELL");
-        sellOrder.setEnergyQuantityKwh(new BigDecimal("10.0000"));
-        sellOrder.setRemainingQuantityKwh(new BigDecimal("0.0000"));
-        sellOrder.setPricePerKwh(new BigDecimal("6.5000"));
-        sellOrder.setStatus("FILLED");
-        sellOrder.setCreatedAt(now);
-        sellOrder.setExpiresAt(now.plusHours(24));
-        orderRepo.save(sellOrder);
+        entityManager.createNativeQuery(
+            "INSERT INTO energy_order (order_id, user_id, meter_id, order_type, energy_quantity_kwh, " +
+            "remaining_quantity_kwh, price_per_kwh, status, created_at, expires_at) " +
+            "VALUES (:id, :userId, :meterId, :type, :qty, :remaining, :price, :status, :created, :expires)")
+            .setParameter("id", SELL_ORDER)
+            .setParameter("userId", BOB_ID)
+            .setParameter("meterId", METER_B_ID)
+            .setParameter("type", "SELL")
+            .setParameter("qty", new BigDecimal("10.0000"))
+            .setParameter("remaining", new BigDecimal("0.0000"))
+            .setParameter("price", new BigDecimal("6.5000"))
+            .setParameter("status", "FILLED")
+            .setParameter("created", now)
+            .setParameter("expires", now.plusHours(24))
+            .executeUpdate();
 
         // ── 7. Energy Trade ─────────────────────────────────────────────────
-        EnergyTrade trade = new EnergyTrade();
-        trade.setTradeId(TRADE_ID);
-        trade.setBuyOrder(buyOrder);
-        trade.setSellOrder(sellOrder);
-        trade.setBuyer(alice);
-        trade.setSeller(bob);
-        trade.setClearedQuantityKwh(new BigDecimal("10.0000"));
-        trade.setClearedPricePerKwh(new BigDecimal("6.7500"));
-        trade.setTotalCost(new BigDecimal("67.5000"));
-        trade.setExecutedAt(now);
-        trade.setStatus("COMPLETED");
-        tradeRepo.save(trade);
+        entityManager.createNativeQuery(
+            "INSERT INTO energy_trade (trade_id, buy_order_id, sell_order_id, buyer_id, seller_id, " +
+            "cleared_quantity_kwh, cleared_price_per_kwh, total_cost, executed_at, status) " +
+            "VALUES (:id, :buyOrderId, :sellOrderId, :buyerId, :sellerId, :qty, :price, :cost, :executed, :status)")
+            .setParameter("id", TRADE_ID)
+            .setParameter("buyOrderId", BUY_ORDER)
+            .setParameter("sellOrderId", SELL_ORDER)
+            .setParameter("buyerId", ALICE_ID)
+            .setParameter("sellerId", BOB_ID)
+            .setParameter("qty", new BigDecimal("10.0000"))
+            .setParameter("price", new BigDecimal("6.7500"))
+            .setParameter("cost", new BigDecimal("67.5000"))
+            .setParameter("executed", now)
+            .setParameter("status", "COMPLETED")
+            .executeUpdate();
 
         // ── 8. Wallet Transactions ──────────────────────────────────────────
-        WalletTransaction debit = new WalletTransaction();
-        debit.setTransactionId(WALLET_A);
-        debit.setUser(alice);
-        debit.setTrade(trade);
-        debit.setAmount(new BigDecimal("-67.5000"));
-        debit.setTransactionType("DEBIT");
-        debit.setDescription("Payment for 10 kWh purchase from Bob");
-        debit.setTimestamp(now);
-        walletRepo.save(debit);
+        entityManager.createNativeQuery(
+            "INSERT INTO wallet_transaction (transaction_id, user_id, trade_id, amount, transaction_type, description, \"timestamp\") " +
+            "VALUES (:id, :userId, :tradeId, :amount, :type, :desc, :ts)")
+            .setParameter("id", WALLET_A)
+            .setParameter("userId", ALICE_ID)
+            .setParameter("tradeId", TRADE_ID)
+            .setParameter("amount", new BigDecimal("-67.5000"))
+            .setParameter("type", "DEBIT")
+            .setParameter("desc", "Payment for 10 kWh purchase from Bob")
+            .setParameter("ts", now)
+            .executeUpdate();
 
-        WalletTransaction credit = new WalletTransaction();
-        credit.setTransactionId(WALLET_B);
-        credit.setUser(bob);
-        credit.setTrade(trade);
-        credit.setAmount(new BigDecimal("67.5000"));
-        credit.setTransactionType("CREDIT");
-        credit.setDescription("Revenue for 10 kWh sale to Alice");
-        credit.setTimestamp(now);
-        walletRepo.save(credit);
+        entityManager.createNativeQuery(
+            "INSERT INTO wallet_transaction (transaction_id, user_id, trade_id, amount, transaction_type, description, \"timestamp\") " +
+            "VALUES (:id, :userId, :tradeId, :amount, :type, :desc, :ts)")
+            .setParameter("id", WALLET_B)
+            .setParameter("userId", BOB_ID)
+            .setParameter("tradeId", TRADE_ID)
+            .setParameter("amount", new BigDecimal("67.5000"))
+            .setParameter("type", "CREDIT")
+            .setParameter("desc", "Revenue for 10 kWh sale to Alice")
+            .setParameter("ts", now)
+            .executeUpdate();
 
-        logger.info("✅ Sample data seeded successfully! (2 users, 1 zone, 2 houses, 2 meters, 2 readings, 2 orders, 1 trade, 2 wallet txns)");
+        entityManager.flush();
     }
 }

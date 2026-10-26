@@ -48,7 +48,7 @@ public class HouseController {
     @GetMapping("/house/user/{userId}")
     public ResponseEntity<?> getHousesByUserId(@PathVariable UUID userId) {
         logger.info("Fetching houses for userId={}", userId);
-        List<House> houses = repo.findByUserId(userId);
+        List<House> houses = repo.findByUser_UserId(userId);
         logger.info("Found {} houses for userId={}", houses.size(), userId);
         return ResponseEntity.ok(houses);
     }

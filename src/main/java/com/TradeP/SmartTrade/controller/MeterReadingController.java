@@ -48,7 +48,7 @@ public class MeterReadingController {
     @GetMapping("/meterreading/meter/{meterId}")
     public ResponseEntity<?> getReadingsByMeterId(@PathVariable UUID meterId) {
         logger.info("Fetching meter readings for meterId={}", meterId);
-        List<MeterReading> readings = repo.findByMeterIdOrderByTimestampDesc(meterId);
+        List<MeterReading> readings = repo.findByMeter_MeterIdOrderByTimestampDesc(meterId);
         logger.info("Found {} readings for meterId={}", readings.size(), meterId);
         return ResponseEntity.ok(readings);
     }

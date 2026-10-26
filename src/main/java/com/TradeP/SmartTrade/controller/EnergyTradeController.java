@@ -48,7 +48,7 @@ public class EnergyTradeController {
     @GetMapping("/energytrade/buyer/{buyerId}")
     public ResponseEntity<?> getTradesByBuyerId(@PathVariable UUID buyerId) {
         logger.info("Fetching trades for buyerId={}", buyerId);
-        List<EnergyTrade> trades = repo.findByBuyerId(buyerId);
+        List<EnergyTrade> trades = repo.findByBuyer_UserId(buyerId);
         logger.info("Found {} trades for buyerId={}", trades.size(), buyerId);
         return ResponseEntity.ok(trades);
     }
@@ -56,7 +56,7 @@ public class EnergyTradeController {
     @GetMapping("/energytrade/seller/{sellerId}")
     public ResponseEntity<?> getTradesBySellerId(@PathVariable UUID sellerId) {
         logger.info("Fetching trades for sellerId={}", sellerId);
-        List<EnergyTrade> trades = repo.findBySellerId(sellerId);
+        List<EnergyTrade> trades = repo.findBySeller_UserId(sellerId);
         logger.info("Found {} trades for sellerId={}", trades.size(), sellerId);
         return ResponseEntity.ok(trades);
     }
