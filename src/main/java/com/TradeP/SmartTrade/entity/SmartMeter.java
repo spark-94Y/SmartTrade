@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
@@ -28,7 +27,7 @@ public class SmartMeter {
 
     @ManyToOne
     @JoinColumn(name = "house_id", nullable = false)
-    @JsonIgnore
+    //to hide all info of data (@JsonIgnore)
     private House house;
 
     @Column(name = "meter_number", nullable = false, unique = true, length = 100)
@@ -46,11 +45,11 @@ public class SmartMeter {
     @Column(name = "status", length = 30)
     private String status = "ONLINE";
 
-    @JsonIgnore
+   //to hide all info of data (@JsonIgnore)
     @OneToMany(mappedBy = "meter")
     private List<MeterReading> meterReadings;
 
-    @JsonIgnore
+   //to hide all info of data (@JsonIgnore)
     @OneToMany(mappedBy = "meter")
     private List<EnergyOrder> energyOrders;
 
